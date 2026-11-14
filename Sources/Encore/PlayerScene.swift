@@ -144,7 +144,7 @@ private struct FullScreenPlayer: View {
 
     var body: some View {
         GeometryReader { geometry in
-            let coverSize = min(geometry.size.height * 0.34, 420)
+            let coverSize = max(min(geometry.size.height * 0.34, 420), 300)
             // Open means open: the column stays through loading and through
             // songs with no lyrics, so the cover never slides about.
             let lyricsOpen = showsLyrics && lyrics.isEnabled
@@ -192,7 +192,7 @@ private struct FullScreenPlayer: View {
                                         )
                                 }
                             }
-                            .frame(width: min(geometry.size.width * 0.36, 600), height: coverSize + 170)
+                            .frame(width: min(geometry.size.width * 0.46, 880), height: coverSize + 170)
                             // Opened with the mic: slides in beside the cover
                             // as the cover makes room for it.
                             .transition(
@@ -239,12 +239,11 @@ private struct FullScreenPlayer: View {
                 ProgressRow(track: track, now: context.date) { nowPlaying.seek(to: $0) }
             }
 
-            PlayerControls(nowPlaying: nowPlaying, track: track)
+            PlayerControls(nowPlaying: nowPlaying, track: track, spacing: 12)
                 .frame(maxWidth: .infinity)
                 .overlay(alignment: .trailing) {
                     if lyrics.isEnabled {
                         LyricsToggle(isOn: showsLyrics, action: onToggleLyrics)
-                            .offset(x: 8)
                             .transition(.opacity)
                     }
                 }
@@ -271,7 +270,7 @@ private struct LyricsToggle: View {
             Image(systemName: "music.mic")
                 .font(.system(size: 16, weight: .semibold))
                 .opacity(isOn ? 1 : 0.62)
-                .frame(width: 44, height: 44)
+                .frame(width: 36, height: 44)
                 .overlay(alignment: .bottom) {
                     Circle()
                         .fill(Color.white)
@@ -362,7 +361,7 @@ private struct LyricsPane: View {
                     )
             } else {
                 GeometryReader { geometry in
-                    Text("No lyrics for this song")
+                    Text("We don’t have lyrics for this song")
                         .font(.system(size: 20, weight: .semibold))
                         .foregroundStyle(.white.opacity(0.45))
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -389,7 +388,7 @@ private struct LyricsPlaceholder: View {
                 ForEach(widths.indices, id: \.self) { index in
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
                         .fill(Color.white.opacity(strengths[index]))
-                        .frame(width: geometry.size.width * widths[index], height: 30)
+                        .frame(width: geometry.size.width * widths[index], height: 36)
                 }
             }
             .offset(y: geometry.size.height * 0.3)
@@ -412,7 +411,8 @@ private struct LyricsColumn: View {
     let lines: [LyricLine]
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 20)) { context in
+        // Nothing moves while the song is paused, so the clock stops too.
+        TimelineView(.animation(minimumInterval: 1.0 / 20, paused: !track.isPlaying)) { context in
             let time = track.elapsed(at: context.date) + 0.15
             let index = LyricLine.index(in: lines, at: time)
             LyricsList(
@@ -454,7 +454,7 @@ private struct LyricsList: View, Equatable {
             // The current line rests about a third of the way down.
             let scroll = geometry.size.height * 0.3 - (tops[max(index, 0)] ?? 0)
 
-            VStack(alignment: .leading, spacing: 24) {
+            VStack(alignment: .leading, spacing: 26) {
                 ForEach(lines) { line in
                     let distance = line.id - index
                     LyricRow(line: line, isCurrent: distance == 0, activeWords: activeWords)
@@ -464,6 +464,9 @@ private struct LyricsList: View, Equatable {
                         .scaleEffect(distance == 0 || reduceMotion ? 1 : 0.97, anchor: .leading)
                         .contentShape(Rectangle())
                         .onTapGesture { onSeek(line.start) }
+                        // Lines run on, unseen, past the column's edges. Only
+                        // the ones in view should take a click.
+                        .allowsHitTesting((-1...5).contains(distance))
                         .offset(y: scroll)
                         .animation(animation(at: distance), value: index)
                         .animation(animation(at: distance), value: tops.isEmpty)
@@ -530,7 +533,7 @@ private struct LyricRow: View {
             InstrumentalDots(isCurrent: isCurrent)
         } else {
             text
-                .font(.system(size: 34, weight: .bold))
+                .font(.system(size: 40, weight: .bold))
                 .lineSpacing(1)
                 .fixedSize(horizontal: false, vertical: true)
                 .animation(.easeOut(duration: 0.3), value: activeWords)
@@ -570,7 +573,7 @@ private struct InstrumentalDots: View {
                     )
             }
         }
-        .frame(height: 34)
+        .frame(height: 40)
         .onAppear { breathing = isCurrent }
         .onChange(of: isCurrent) { _, now in breathing = now }
         .accessibilityHidden(true)

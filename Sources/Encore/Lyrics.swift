@@ -128,6 +128,18 @@ final class LyricsStore: ObservableObject {
         if !lines.isEmpty { lines = [] }
         isLoading = true
 
+        // A song's length arrives a moment after its title, and the length is
+        // what tells two recordings of the same song apart. Looking up without
+        // it can fetch, and remember, lyrics timed for the wrong one. So wait
+        // for it, and give up quietly on things that never have one.
+        guard request.duration > 0 else {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 4) { [weak self] in
+                guard let self, self.current == request else { return }
+                self.isLoading = false
+            }
+            return
+        }
+
         task = Task { [weak self] in
             let found = await Self.fetch(request)
             await MainActor.run {

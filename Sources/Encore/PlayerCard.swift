@@ -161,9 +161,10 @@ struct PlayerControls: View {
     let nowPlaying: NowPlaying
     let track: Track
     var scale: CGFloat = 1
+    var spacing: CGFloat = 18
 
     var body: some View {
-        HStack(spacing: 18 * scale) {
+        HStack(spacing: spacing * scale) {
             ControlButton(symbol: "backward.fill", label: "Previous track", size: 19 * scale, bounces: true) {
                 nowPlaying.previous()
             }
@@ -387,6 +388,9 @@ final class ClearGlassView: NSView {
     }
 
     private func removeBlur() {
+        // Someone who has asked macOS for less transparency gets Apple's
+        // glass as shipped, which is easier to read against.
+        guard !NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency else { return }
         guard let layer = glass?.layer, let backdrop = Self.backdrop(in: layer) else { return }
         if backdrop !== watched {
             // Catch the system's rewrites as they happen, so the blur never

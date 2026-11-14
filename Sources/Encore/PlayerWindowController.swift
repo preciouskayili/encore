@@ -111,6 +111,10 @@ final class PlayerWindowController {
             let center = DistributedNotificationCenter.default()
             center.addObserver(self, selector: #selector(screenLocked), name: .init("com.apple.screenIsLocked"), object: nil)
             center.addObserver(self, selector: #selector(screenUnlocked), name: .init("com.apple.screenIsUnlocked"), object: nil)
+            // If Encore starts while the Mac is already locked, say after a
+            // restart of the app, there is no "locked" event to wait for.
+            let session = CGSessionCopyCurrentDictionary() as? [String: Any]
+            isLocked = session?["CGSSessionScreenIsLocked"] as? Bool ?? false
         case .desktop:
             panel.level = .floating
             panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle]

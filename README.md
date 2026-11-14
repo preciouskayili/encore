@@ -69,6 +69,9 @@ The rest is ordinary SwiftUI:
 
 - Because these tricks are undocumented, a macOS update can break them. Encore checks for each one and falls back: no lock screen player, or Apple’s default blurred glass.
 - The full-screen view covers the lock screen’s own clock and draws its own. The lock screen draws its clock and wallpaper in a single solid window, so no window can go between them, and the lock screen’s wallpaper is a separate setting that apps can’t change.
+- Between songs the player holds still. The old cover stays until the new one arrives, the lyrics column keeps its place with soft placeholder lines while lyrics load, and a moment of “nothing playing” from the music app is ignored. If a song has no lyrics, the column says so.
+- Lyrics are only looked up once the song’s length is known, because the length is what tells two recordings of the same song apart.
+- With Reduce Transparency on in Accessibility settings, the glass keeps Apple’s default blur.
 - Lyrics depend on LRCLIB having the song. Many songs have line timing only; word-by-word lighting needs word timing, which fewer songs have.
 - This can’t go on the App Store, because of the undocumented parts above.
 - `~/Library/Logs/Encore.log` records what happened on the lock screen, since you can’t inspect it while it’s up.
