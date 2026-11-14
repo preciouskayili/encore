@@ -145,7 +145,9 @@ private struct FullScreenPlayer: View {
     var body: some View {
         GeometryReader { geometry in
             let coverSize = min(geometry.size.height * 0.34, 420)
-            let lyricsOpen = showsLyrics && !lyrics.lines.isEmpty
+            // Open means open: the column stays through loading and through
+            // songs with no lyrics, so the cover never slides about.
+            let lyricsOpen = showsLyrics && lyrics.isEnabled
 
             ZStack {
                 Backdrop(image: nowPlaying.artwork, version: nowPlaying.artworkVersion)
@@ -180,7 +182,7 @@ private struct FullScreenPlayer: View {
                             // shift as it opens.
                             ZStack {
                                 if isShown {
-                                    LyricsColumn(nowPlaying: nowPlaying, track: track, lines: lyrics.lines)
+                                    LyricsPane(nowPlaying: nowPlaying, lyrics: lyrics, track: track)
                                         .transition(
                                             .asymmetric(
                                                 insertion: (reduceMotion ? AnyTransition.opacity : .opacity.combined(with: .offset(x: 28)))
@@ -233,16 +235,14 @@ private struct FullScreenPlayer: View {
             .id(track.identity)
             .transition(reduceMotion ? AnyTransition.opacity : AnyTransition(.blurReplace))
 
-            if track.duration > 0 {
-                TimelineView(.periodic(from: .now, by: 0.5)) { context in
-                    ProgressRow(track: track, now: context.date) { nowPlaying.seek(to: $0) }
-                }
+            TimelineView(.periodic(from: .now, by: 0.5)) { context in
+                ProgressRow(track: track, now: context.date) { nowPlaying.seek(to: $0) }
             }
 
             PlayerControls(nowPlaying: nowPlaying, track: track)
                 .frame(maxWidth: .infinity)
                 .overlay(alignment: .trailing) {
-                    if !lyrics.lines.isEmpty {
+                    if lyrics.isEnabled {
                         LyricsToggle(isOn: showsLyrics, action: onToggleLyrics)
                             .offset(x: 8)
                             .transition(.opacity)
@@ -332,6 +332,72 @@ struct Backdrop: View {
             .clipped()
             .animation(.smooth(duration: 0.9), value: version)
         }
+    }
+}
+
+/// What fills the lyrics column: the lyrics, placeholder lines while they're
+/// being looked up, or a quiet note that the song has none. The three fade
+/// into one another in place.
+private struct LyricsPane: View {
+    let nowPlaying: NowPlaying
+    @ObservedObject var lyrics: LyricsStore
+    let track: Track
+
+    var body: some View {
+        let state = lyrics.lines.isEmpty ? (lyrics.isLoading ? "loading" : "none") : "lyrics"
+
+        ZStack {
+            if !lyrics.lines.isEmpty {
+                LyricsColumn(nowPlaying: nowPlaying, track: track, lines: lyrics.lines)
+                    .id(track.identity)
+                    .transition(.opacity)
+            } else if lyrics.isLoading {
+                LyricsPlaceholder()
+                    // A quick lookup never shows the placeholder at all.
+                    .transition(
+                        .asymmetric(
+                            insertion: .opacity.animation(.easeIn(duration: 0.25).delay(0.25)),
+                            removal: .opacity
+                        )
+                    )
+            } else {
+                GeometryReader { geometry in
+                    Text("No lyrics for this song")
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.45))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .offset(y: geometry.size.height * 0.3)
+                }
+                .transition(.opacity)
+            }
+        }
+        .animation(.smooth(duration: 0.35), value: state + track.identity)
+    }
+}
+
+/// Soft bars where the lines will be, breathing gently while lyrics load.
+private struct LyricsPlaceholder: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var breathing = false
+
+    private let widths: [CGFloat] = [0.62, 0.88, 0.72, 0.5, 0.8]
+    private let strengths: [Double] = [0.26, 0.15, 0.11, 0.08, 0.05]
+
+    var body: some View {
+        GeometryReader { geometry in
+            VStack(alignment: .leading, spacing: 30) {
+                ForEach(widths.indices, id: \.self) { index in
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(Color.white.opacity(strengths[index]))
+                        .frame(width: geometry.size.width * widths[index], height: 30)
+                }
+            }
+            .offset(y: geometry.size.height * 0.3)
+            .opacity(breathing && !reduceMotion ? 0.55 : 1)
+            .animation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true), value: breathing)
+        }
+        .onAppear { breathing = true }
+        .accessibilityLabel("Loading lyrics")
     }
 }
 

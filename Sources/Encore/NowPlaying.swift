@@ -40,6 +40,9 @@ final class NowPlaying: ObservableObject {
     private var input: FileHandle?
     private var buffer = Data()
     private var retryDelay: TimeInterval = 2
+    private var shownArtworkKey = ""
+    private var pendingClear: DispatchWorkItem?
+    private var pendingArtworkClear: DispatchWorkItem?
     private let queue = DispatchQueue(label: "encore.now-playing")
 
     /// Shows a made-up song instead of reading the system's. See `Demo`.
@@ -137,11 +140,13 @@ final class NowPlaying: ObservableObject {
         let title = message["title"] as? String ?? ""
         let artist = message["artist"] as? String ?? ""
         guard !title.isEmpty || !artist.isEmpty else {
-            if track != nil { track = nil }
-            artwork = nil
-            sourceIcon = nil
+            // Players report nothing for a moment between songs. Believing it
+            // straight away would blank the player and then bring it back.
+            clearSoon()
             return
         }
+        pendingClear?.cancel()
+        pendingClear = nil
 
         let bundleID = (message["bundleID"] as? String).flatMap { $0.isEmpty ? nil : $0 }
         let updated = Track(
@@ -156,17 +161,63 @@ final class NowPlaying: ObservableObject {
             bundleID: bundleID
         )
 
+        let artworkKey = message["artworkKey"] as? String ?? ""
         let songChanged = updated.identity != track?.identity
         if let image {
-            artwork = image
-        } else if songChanged, (message["artworkKey"] as? String ?? "").isEmpty {
-            artwork = nil // Don't show the last song's cover on a new song.
+            // The helper re-sends a cover it has sent before; only a cover
+            // that's actually different replaces the one on screen.
+            if artworkKey != shownArtworkKey || artwork == nil {
+                artwork = image
+                shownArtworkKey = artworkKey
+            }
+            pendingArtworkClear?.cancel()
+            pendingArtworkClear = nil
+        } else if songChanged {
+            if !artworkKey.isEmpty, artworkKey == shownArtworkKey {
+                pendingArtworkClear?.cancel() // Same cover as the last song.
+                pendingArtworkClear = nil
+            } else {
+                // The new song's cover usually arrives a moment after its
+                // title. Keep the old cover up until it does, so the player
+                // goes from one cover to the next without an empty frame in
+                // between, and only show "no cover" if none ever comes.
+                clearArtworkSoon(unlessReplaced: shownArtworkKey, for: updated.identity)
+            }
         }
 
         if bundleID != track?.bundleID || sourceIcon == nil {
             sourceIcon = bundleID.flatMap(Self.icon(for:))
         }
         if updated != track { track = updated }
+    }
+
+    private func clearSoon() {
+        guard pendingClear == nil, track != nil else { return }
+        let work = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.pendingClear = nil
+            self.pendingArtworkClear?.cancel()
+            self.pendingArtworkClear = nil
+            self.track = nil
+            self.artwork = nil
+            self.sourceIcon = nil
+            self.shownArtworkKey = ""
+        }
+        pendingClear = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5, execute: work)
+    }
+
+    private func clearArtworkSoon(unlessReplaced key: String, for song: String) {
+        pendingArtworkClear?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.pendingArtworkClear = nil
+            guard self.track?.identity == song, self.shownArtworkKey == key else { return }
+            self.artwork = nil
+            self.shownArtworkKey = ""
+        }
+        pendingArtworkClear = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3, execute: work)
     }
 
     private static func icon(for bundleID: String) -> NSImage? {

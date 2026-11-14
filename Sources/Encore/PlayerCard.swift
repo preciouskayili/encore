@@ -67,10 +67,8 @@ struct PlayerCard: View {
             }
             .animation(.smooth(duration: 0.45), value: track.identity)
 
-            if track.duration > 0 {
-                TimelineView(.periodic(from: .now, by: 0.5)) { context in
-                    ProgressRow(track: track, now: context.date) { nowPlaying.seek(to: $0) }
-                }
+            TimelineView(.periodic(from: .now, by: 0.5)) { context in
+                ProgressRow(track: track, now: context.date) { nowPlaying.seek(to: $0) }
             }
 
             PlayerControls(nowPlaying: nowPlaying, track: track)
@@ -191,9 +189,12 @@ struct ProgressRow: View {
     @State private var isHovering = false
 
     var body: some View {
+        // A song's length can arrive after its title, and live streams have
+        // none. The row stays either way, empty, so nothing below it moves.
+        let hasLength = track.duration > 0
         let elapsed = scrub.map { $0 * track.duration } ?? track.elapsed(at: now)
-        let fraction = min(max(elapsed / track.duration, 0), 1)
-        let isActive = scrub != nil || isHovering
+        let fraction = hasLength ? min(max(elapsed / track.duration, 0), 1) : 0
+        let isActive = hasLength && (scrub != nil || isHovering)
 
         VStack(spacing: 2) {
             GeometryReader { geometry in
@@ -226,11 +227,12 @@ struct ProgressRow: View {
                 )
             }
             .frame(height: 20)
+            .allowsHitTesting(hasLength)
 
             HStack {
-                Text(Self.clock(elapsed))
+                Text(hasLength ? Self.clock(elapsed) : "–:––")
                 Spacer()
-                Text("−" + Self.clock(track.duration - elapsed))
+                Text(hasLength ? "−" + Self.clock(track.duration - elapsed) : "–:––")
             }
             .font(.system(size: 11, weight: .medium))
             .monospacedDigit()

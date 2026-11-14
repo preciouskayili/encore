@@ -35,6 +35,9 @@ final class LyricsStore: ObservableObject {
     static let enabledKey = "showLyrics"
 
     @Published private(set) var lines: [LyricLine] = []
+    /// True from the moment a new song starts until its lyrics are found or
+    /// ruled out, so views can hold their place instead of collapsing.
+    @Published private(set) var isLoading = false
 
     private struct Request: Equatable {
         var title: String
@@ -48,17 +51,29 @@ final class LyricsStore: ObservableObject {
     private var current: Request?
     private var task: Task<Void, Never>?
     private var cancellable: AnyCancellable?
+    private var songChange: AnyCancellable?
     private var isDemo = false
 
     var isEnabled: Bool {
         get { UserDefaults.standard.object(forKey: Self.enabledKey) as? Bool ?? true }
         set {
+            objectWillChange.send()
             UserDefaults.standard.set(newValue, forKey: Self.enabledKey)
             load(current)
         }
     }
 
     init(nowPlaying: NowPlaying) {
+        // The lookup below waits for a new song's details to settle. This
+        // doesn't: the old song's lyrics go, and loading starts, at once.
+        songChange = nowPlaying.$track
+            .map { track -> String? in
+                guard let track, !track.title.isEmpty else { return nil }
+                return [track.title, track.artist, track.album].joined(separator: "\u{1F}")
+            }
+            .removeDuplicates()
+            .sink { [weak self] key in self?.songChanged(to: key) }
+
         cancellable = nowPlaying.$track
             .map { track -> Request? in
                 guard let track, !track.title.isEmpty else { return nil }
@@ -71,6 +86,22 @@ final class LyricsStore: ObservableObject {
             // A new song's details arrive in pieces; wait for them to settle.
             .debounce(for: .milliseconds(400), scheduler: DispatchQueue.main)
             .sink { [weak self] in self?.load($0) }
+    }
+
+    private func songChanged(to key: String?) {
+        guard !isDemo else { return }
+        if let key, isEnabled {
+            if let cached = cache[key] {
+                lines = cached
+                isLoading = false
+            } else {
+                lines = []
+                isLoading = true
+            }
+        } else {
+            lines = []
+            isLoading = false
+        }
     }
 
     /// Shows made-up lyrics and stops looking any up. See `Demo`.
@@ -86,18 +117,22 @@ final class LyricsStore: ObservableObject {
         current = request
         guard let request, isEnabled else {
             if !lines.isEmpty { lines = [] }
+            isLoading = false
             return
         }
         if let cached = cache[request.key] {
             if lines != cached { lines = cached }
+            isLoading = false
             return
         }
         if !lines.isEmpty { lines = [] }
+        isLoading = true
 
         task = Task { [weak self] in
             let found = await Self.fetch(request)
             await MainActor.run {
                 guard let self, self.current == request, !Task.isCancelled else { return }
+                self.isLoading = false
                 // A failed request isn't remembered, so the next play retries.
                 guard let found else { return }
                 self.cache[request.key] = found
