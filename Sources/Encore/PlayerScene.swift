@@ -516,7 +516,7 @@ private struct InstrumentalDots: View {
 /// and weight the lock screen is using. The style is read again whenever the
 /// view opens and every minute after, so changing the lock screen clock in
 /// System Settings changes this one too.
-private struct ClockLabel: View {
+struct ClockLabel: View {
     /// The screen's height; the clock is sized from it, as the real one is.
     let screenHeight: CGFloat
 

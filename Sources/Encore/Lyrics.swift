@@ -48,6 +48,7 @@ final class LyricsStore: ObservableObject {
     private var current: Request?
     private var task: Task<Void, Never>?
     private var cancellable: AnyCancellable?
+    private var isDemo = false
 
     var isEnabled: Bool {
         get { UserDefaults.standard.object(forKey: Self.enabledKey) as? Bool ?? true }
@@ -72,7 +73,15 @@ final class LyricsStore: ObservableObject {
             .sink { [weak self] in self?.load($0) }
     }
 
+    /// Shows made-up lyrics and stops looking any up. See `Demo`.
+    func loadDemo(_ demo: [LyricLine]) {
+        isDemo = true
+        task?.cancel()
+        lines = demo
+    }
+
     private func load(_ request: Request?) {
+        guard !isDemo else { return }
         task?.cancel()
         current = request
         guard let request, isEnabled else {

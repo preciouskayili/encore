@@ -42,6 +42,13 @@ final class NowPlaying: ObservableObject {
     private var retryDelay: TimeInterval = 2
     private let queue = DispatchQueue(label: "encore.now-playing")
 
+    /// Shows a made-up song instead of reading the system's. See `Demo`.
+    func loadDemo(track: Track, cover: NSImage) {
+        self.track = track
+        artwork = cover
+        sourceIcon = nil
+    }
+
     // MARK: Helper process
 
     func start() {

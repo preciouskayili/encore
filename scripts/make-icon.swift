@@ -1,9 +1,9 @@
-// Draws Encore's app icon and writes Support/AppIcon.icns.
+// Draws Encore's app icon and writes Support/AppIcon.icns and AppIcon.png.
 // Run from the project folder: swift scripts/make-icon.swift
 //
-// The icon is the player itself: a pane of glass holding a play button and a
-// song's progress, over the soft wash of colour the full-screen view makes
-// from a cover.
+// The mark is the repeat sign from sheet music: two dots, a thin bar and a
+// thick bar, which tells the player to go back and play it again. An encore.
+// It's flat: one solid colour, a white mark, nothing else.
 import AppKit
 import SwiftUI
 
@@ -15,7 +15,6 @@ let bitmap = NSBitmapImageRep(
 )!
 NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: bitmap)
 let context = NSGraphicsContext.current!.cgContext
-let space = CGColorSpaceCreateDeviceRGB()
 
 func color(_ hex: UInt32, _ alpha: CGFloat = 1) -> CGColor {
     CGColor(
@@ -24,85 +23,43 @@ func color(_ hex: UInt32, _ alpha: CGFloat = 1) -> CGColor {
     )
 }
 
-func glow(_ hex: UInt32, at center: CGPoint, radius: CGFloat, strength: CGFloat) {
-    let gradient = CGGradient(colorsSpace: space, colors: [color(hex, strength), color(hex, 0)] as CFArray, locations: [0, 1])!
-    context.drawRadialGradient(gradient, startCenter: center, startRadius: 0, endCenter: center, endRadius: radius, options: [])
-}
-
-// macOS's icon shape: a rounded square inset from the canvas, with a soft shadow.
+// macOS's icon shape: a rounded square inset from the canvas, with the
+// standard soft shadow under it.
 let tile = CGRect(x: 100, y: 100, width: 824, height: 824)
 let shape = RoundedRectangle(cornerRadius: 186, style: .continuous).path(in: tile).cgPath
 
 context.saveGState()
-context.setShadow(offset: CGSize(width: 0, height: -12), blur: 28, color: color(0x000000, 0.35))
+context.setShadow(offset: CGSize(width: 0, height: -10), blur: 24, color: color(0x000000, 0.28))
 context.addPath(shape)
-context.setFillColor(color(0x0C0B10))
+context.setFillColor(color(0x2B59FF))
 context.fillPath()
 context.restoreGState()
 
-// The colour wash.
-context.saveGState()
-context.addPath(shape)
-context.clip()
-glow(0xFF5A36, at: CGPoint(x: 300, y: 760), radius: 520, strength: 0.95)
-glow(0x8A3CFF, at: CGPoint(x: 800, y: 300), radius: 540, strength: 0.85)
-glow(0xFFB23C, at: CGPoint(x: 760, y: 820), radius: 320, strength: 0.55)
-glow(0x1F6BFF, at: CGPoint(x: 220, y: 240), radius: 380, strength: 0.5)
-context.setFillColor(color(0x000000, 0.22))
-context.fill(tile)
-context.restoreGState()
+// The repeat sign, centred.
+let height: CGFloat = 392
+let dot: CGFloat = 84
+let thin: CGFloat = 30
+let thick: CGFloat = 84
+let gapAfterDots: CGFloat = 58
+let gapBetweenBars: CGFloat = 40
+let width = dot + gapAfterDots + thin + gapBetweenBars + thick
+let left = tile.midX - width / 2
+let bottom = tile.midY - height / 2
 
-// The pane of glass.
-let pane = CGRect(x: 232, y: 332, width: 560, height: 360)
-let paneShape = RoundedRectangle(cornerRadius: 84, style: .continuous).path(in: pane).cgPath
+func bar(x: CGFloat, width: CGFloat) {
+    let rect = CGRect(x: x, y: bottom, width: width, height: height)
+    context.addPath(CGPath(roundedRect: rect, cornerWidth: 10, cornerHeight: 10, transform: nil))
+    context.fillPath()
+}
 
-context.saveGState()
-context.addPath(paneShape)
-context.clip()
-context.setFillColor(color(0xFFFFFF, 0.13))
-context.fill(pane)
-let sheen = CGGradient(
-    colorsSpace: space,
-    colors: [color(0xFFFFFF, 0.26), color(0xFFFFFF, 0.02), color(0xFFFFFF, 0.08)] as CFArray,
-    locations: [0, 0.55, 1]
-)!
-context.drawLinearGradient(sheen, start: CGPoint(x: pane.midX, y: pane.maxY), end: CGPoint(x: pane.midX, y: pane.minY), options: [])
-context.restoreGState()
-
-context.addPath(paneShape)
-context.setStrokeColor(color(0xFFFFFF, 0.62))
-context.setLineWidth(5)
-context.strokePath()
-
-// Play.
-let play = CGMutablePath()
-let center = CGPoint(x: pane.midX + 10, y: pane.midY + 46)
-play.move(to: CGPoint(x: center.x - 52, y: center.y + 70))
-play.addLine(to: CGPoint(x: center.x + 66, y: center.y))
-play.addLine(to: CGPoint(x: center.x - 52, y: center.y - 70))
-play.closeSubpath()
-context.saveGState()
-context.setShadow(offset: CGSize(width: 0, height: -6), blur: 18, color: color(0x000000, 0.25))
-context.setLineJoin(.round)
-context.setLineWidth(22)
-context.setStrokeColor(color(0xFFFFFF))
 context.setFillColor(color(0xFFFFFF))
-context.addPath(play)
-context.drawPath(using: .fillStroke)
-context.restoreGState()
-context.setFillColor(color(0xFFFFFF))
-context.addPath(play)
-context.fillPath()
+bar(x: left + dot + gapAfterDots, width: thin)
+bar(x: left + dot + gapAfterDots + thin + gapBetweenBars, width: thick)
 
-// Progress.
-let track = CGRect(x: pane.minX + 78, y: pane.minY + 74, width: pane.width - 156, height: 18)
-context.addPath(CGPath(roundedRect: track, cornerWidth: 9, cornerHeight: 9, transform: nil))
-context.setFillColor(color(0xFFFFFF, 0.32))
-context.fillPath()
-let played = CGRect(x: track.minX, y: track.minY, width: track.width * 0.58, height: track.height)
-context.addPath(CGPath(roundedRect: played, cornerWidth: 9, cornerHeight: 9, transform: nil))
-context.setFillColor(color(0xFFFFFF))
-context.fillPath()
+context.setFillColor(color(0xAABDFF))
+for offset in [-86.0, 86.0] {
+    context.fillEllipse(in: CGRect(x: left, y: tile.midY + offset - dot / 2, width: dot, height: dot))
+}
 
 NSGraphicsContext.current = nil
 

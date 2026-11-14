@@ -8,12 +8,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var lockScreen: PlayerWindowController?
     private var preview: PlayerWindowController?
     private var statusItem: NSStatusItem?
+    private var demoStage: NSPanel?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        nowPlaying.start()
-        _ = lyrics
-
         let arguments = CommandLine.arguments
+        if arguments.contains("--demo") {
+            nowPlaying.loadDemo(track: Demo.track, cover: Demo.cover)
+            lyrics.loadDemo(Demo.lines)
+            demoStage = Demo.makeStage()
+        } else {
+            nowPlaying.start()
+            _ = lyrics
+        }
+
         for (flag, expanded) in [("--snapshot", false), ("--snapshot-full", true)] {
             if let index = arguments.firstIndex(of: flag), index + 1 < arguments.count {
                 snapshot(to: arguments[index + 1], expanded: expanded)
