@@ -10,8 +10,12 @@ final class PlayerSceneModel: ObservableObject {
     /// Whether the full-screen view has its lyrics open. Off, it's just the
     /// cover over its colours. Remembered between launches.
     @Published var showsLyrics = UserDefaults.standard.bool(forKey: "lyricsOpenInFullScreen") {
-        didSet { UserDefaults.standard.set(showsLyrics, forKey: "lyricsOpenInFullScreen") }
+        didSet {
+            if remembersLyricsChoice { UserDefaults.standard.set(showsLyrics, forKey: "lyricsOpenInFullScreen") }
+        }
     }
+    /// Off while a demo is driving the player, so it doesn't change your setting.
+    var remembersLyricsChoice = true
     /// Set by the window controller, which has to resize the window around
     /// the change.
     var setExpanded: (Bool) -> Void = { _ in }

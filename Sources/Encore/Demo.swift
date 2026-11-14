@@ -1,10 +1,13 @@
 import AppKit
 import SwiftUI
 
-/// `Encore --demo` shows the player with a made-up song, cover and lyrics
-/// over a stand-in lock screen, instead of whatever is really playing. It
-/// exists for screenshots: nothing in it belongs to anyone else, and nothing
-/// from the Mac it runs on is in the picture.
+/// Two ways to show Encore off without locking the Mac, both over a stand-in
+/// lock screen that hides the desktop:
+///
+/// - `Encore --tour` uses the song that's really playing and runs the player
+///   through its paces by itself. `scripts/record-demo.sh` records it.
+/// - `Encore --demo` shows a made-up song, cover and lyrics instead, for
+///   pictures with nothing in them that belongs to anyone else.
 enum Demo {
     static var track: Track {
         Track(
@@ -83,14 +86,18 @@ enum Demo {
         }
     }()
 
-    /// A stand-in lock screen behind the player: a quiet wallpaper and the
-    /// clock, so the small card can be photographed in something like its
-    /// real setting.
-    static func makeStage() -> NSPanel {
+    /// A stand-in lock screen behind the player: the wallpaper and the clock,
+    /// so the player can be shown in something like its real setting. With
+    /// `realWallpaper` it uses the Mac's own wallpaper, as the lock screen does.
+    static func makeStage(realWallpaper: Bool = false) -> NSPanel {
         let panel = PlayerPanel()
         panel.level = .screenSaver
         panel.ignoresMouseEvents = true
-        let host = NSHostingView(rootView: StageView())
+        var wallpaper: NSImage?
+        if realWallpaper, let screen = NSScreen.screens.first, let url = NSWorkspace.shared.desktopImageURL(for: screen) {
+            wallpaper = NSImage(contentsOf: url)
+        }
+        let host = NSHostingView(rootView: StageView(wallpaper: wallpaper))
         host.safeAreaRegions = []
         panel.contentView = host
         if let screen = NSScreen.screens.first { panel.setFrame(screen.frame, display: true) }
@@ -100,21 +107,20 @@ enum Demo {
 }
 
 private struct StageView: View {
+    var wallpaper: NSImage?
+
     var body: some View {
         GeometryReader { geometry in
             ZStack(alignment: .top) {
-                LinearGradient(
-                    colors: [
-                        Color(red: 0.07, green: 0.09, blue: 0.2), Color(red: 0.22, green: 0.2, blue: 0.42),
-                        Color(red: 0.62, green: 0.36, blue: 0.46), Color(red: 0.93, green: 0.62, blue: 0.45),
-                    ],
-                    startPoint: .top, endPoint: .bottom
-                )
-                Circle()
-                    .fill(Color(red: 1, green: 0.8, blue: 0.6).opacity(0.5))
-                    .frame(width: geometry.size.width * 0.5)
-                    .blur(radius: 160)
-                    .offset(y: geometry.size.height * 0.62)
+                if let wallpaper {
+                    Image(nsImage: wallpaper)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: geometry.size.width, height: geometry.size.height)
+                        .clipped()
+                } else {
+                    paintedSky(in: geometry.size)
+                }
                 ClockLabel(screenHeight: geometry.size.height)
                     .padding(.top, geometry.size.height * 0.055)
             }
@@ -123,5 +129,22 @@ private struct StageView: View {
         }
         .environment(\.colorScheme, .dark)
         .ignoresSafeArea()
+    }
+
+    private func paintedSky(in size: CGSize) -> some View {
+        ZStack {
+            LinearGradient(
+                    colors: [
+                        Color(red: 0.07, green: 0.09, blue: 0.2), Color(red: 0.22, green: 0.2, blue: 0.42),
+                        Color(red: 0.62, green: 0.36, blue: 0.46), Color(red: 0.93, green: 0.62, blue: 0.45),
+                    ],
+                    startPoint: .top, endPoint: .bottom
+                )
+            Circle()
+                .fill(Color(red: 1, green: 0.8, blue: 0.6).opacity(0.5))
+                .frame(width: size.width * 0.5)
+                .blur(radius: 160)
+                .offset(y: size.height * 0.62)
+        }
     }
 }

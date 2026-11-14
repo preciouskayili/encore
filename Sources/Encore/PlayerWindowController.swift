@@ -49,7 +49,10 @@ final class PlayerWindowController {
     private var isLocked = false
     private var wantsPreview = false
     private(set) var isShown = false
+    /// Shows the lock screen player without the Mac being locked. For demos.
+    private var alwaysShow = false
     private var cancellables = Set<AnyCancellable>()
+    private var tour: AnyCancellable?
 
     /// The cover's spring, or a short fade when Reduce Motion is on.
     private static var expandSpring: Animation {
@@ -132,6 +135,45 @@ final class PlayerWindowController {
             .store(in: &cancellables)
     }
 
+    /// Puts the player through its paces by itself, for recording a demo:
+    /// once a song is showing, the card sits for a moment, the cover opens to
+    /// full screen, the lyrics open and play for a while, then everything
+    /// closes again.
+    func runDemoTour() {
+        model.remembersLyricsChoice = false
+        model.showsLyrics = false
+        alwaysShow = true
+        update()
+
+        tour = nowPlaying.$track
+            .compactMap { $0 }
+            .first()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                guard let self else { return }
+                self.update()
+                // Tell whoever is recording that the stage is set: the
+                // stand-in lock screen is up and a song is showing.
+                let ready = FileManager.default.temporaryDirectory.appendingPathComponent("encore-tour-ready")
+                try? Data().write(to: ready)
+                let steps: [(after: Double, action: () -> Void)] = [
+                    (3.2, { [weak self] in self?.setExpanded(true) }),
+                    (5.6, { [weak self] in
+                        guard let self else { return }
+                        withAnimation(Self.expandSpring) { self.model.showsLyrics = true }
+                    }),
+                    (14.8, { [weak self] in
+                        guard let self else { return }
+                        withAnimation(Self.expandSpring) { self.model.showsLyrics = false }
+                    }),
+                    (16.2, { [weak self] in self?.setExpanded(false) }),
+                ]
+                for step in steps {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + step.after, execute: step.action)
+                }
+            }
+    }
+
     // MARK: Showing and hiding
 
     @objc private func screenLocked() {
@@ -154,7 +196,7 @@ final class PlayerWindowController {
         let show: Bool
         switch placement {
         case .lockScreen:
-            let forced = UserDefaults.standard.bool(forKey: "debugAlwaysShow")
+            let forced = alwaysShow || UserDefaults.standard.bool(forKey: "debugAlwaysShow")
             show = isEnabled && hasTrack && (isLocked || forced)
         case .desktop:
             show = wantsPreview

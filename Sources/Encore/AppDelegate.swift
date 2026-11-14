@@ -12,13 +12,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let arguments = CommandLine.arguments
-        if arguments.contains("--demo") {
+        let isDemo = arguments.contains("--demo") || arguments.contains("--demo-tour")
+        if isDemo {
             nowPlaying.loadDemo(track: Demo.track, cover: Demo.cover)
             lyrics.loadDemo(Demo.lines)
             demoStage = Demo.makeStage()
         } else {
             nowPlaying.start()
             _ = lyrics
+            if arguments.contains("--tour") { demoStage = Demo.makeStage(realWallpaper: true) }
         }
 
         for (flag, expanded) in [("--snapshot", false), ("--snapshot-full", true)] {
@@ -29,6 +31,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
 
         lockScreen = PlayerWindowController(placement: .lockScreen, nowPlaying: nowPlaying, lyrics: lyrics)
+        if arguments.contains("--demo-tour") || arguments.contains("--tour") { lockScreen?.runDemoTour() }
         installStatusItem()
         Log.write("encore: started")
         turnOnOpenAtLoginOnce()
