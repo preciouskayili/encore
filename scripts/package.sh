@@ -1,0 +1,14 @@
+#!/bin/bash
+# Builds the app and zips it for sharing: build/Encore-<version>.zip
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+./scripts/build.sh
+
+VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" Support/Info.plist)
+ZIP="build/Encore-$VERSION.zip"
+rm -f "$ZIP"
+# ditto keeps the app's signature and icon intact, which plain zip can break.
+ditto -c -k --sequesterRsrc --keepParent build/Encore.app "$ZIP"
+
+echo "Packaged $ZIP"
