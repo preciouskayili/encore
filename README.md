@@ -13,10 +13,10 @@ It works with anything macOS knows is playing: Spotify, Music, a browser tab.
 
 ## Install
 
-1. Download `Encore-0.1.0.zip` from the [Releases](../../releases) page, unzip it and move **Encore** to your Applications folder.
-2. Open it. macOS will say it can’t check the app, because Encore isn’t signed with a paid Apple developer account. Click **Done**.
+1. Download **Encore.dmg** from the [latest release](../../releases/latest), open it and drag **Encore** onto the Applications folder.
+2. Open Encore from Applications. macOS will say it can’t check the app, because Encore isn’t notarised by Apple (that needs a paid Apple developer account). Click **Done**.
 3. Open **System Settings → Privacy & Security**, scroll down to the message about Encore, click **Open Anyway** and confirm. You only do this once.
-4. Encore appears as a music note in the menu bar. Play a song and lock your Mac with ⌃⌘Q.
+4. Encore appears as a music note in the menu bar and turns on **Open at login**, so it’s there every time you start your Mac. Play a song and lock your Mac with ⌃⌘Q.
 
 If you’re comfortable in Terminal, this does steps 2 and 3 in one go:
 
@@ -34,7 +34,7 @@ From the music note in the menu bar you can:
 - have the cover open full screen by itself every time you lock
 - turn lyrics on or off
 - preview the player on the desktop, including full screen, without locking
-- set Encore to open at login
+- turn Open at login off or back on (it’s on after the first launch from Applications)
 
 ## Build it yourself
 
@@ -48,7 +48,7 @@ You need Xcode.
 open build/Encore.app
 ```
 
-`./scripts/package.sh` builds and zips the app for sharing. `swift scripts/make-icon.swift` redraws the icon.
+`./scripts/package.sh` builds the app and packages it for sharing as a zip and a disk image. `swift scripts/make-icon.swift` redraws the icon.
 
 ## How it works
 

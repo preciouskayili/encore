@@ -31,6 +31,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         lockScreen = PlayerWindowController(placement: .lockScreen, nowPlaying: nowPlaying, lyrics: lyrics)
         installStatusItem()
         Log.write("encore: started")
+        turnOnOpenAtLoginOnce()
+    }
+
+    /// The lock screen player is only useful if it's running, so Encore
+    /// turns on Open at login the first time it runs from an Applications
+    /// folder. It does this once: switching it off in the menu sticks.
+    private func turnOnOpenAtLoginOnce() {
+        let key = "openAtLoginSetUp"
+        guard !UserDefaults.standard.bool(forKey: key) else { return }
+        let path = Bundle.main.bundlePath
+        let applications = ["/Applications/", NSHomeDirectory() + "/Applications/"]
+        guard applications.contains(where: { path.hasPrefix($0) }) else { return }
+        do {
+            if SMAppService.mainApp.status != .enabled {
+                try SMAppService.mainApp.register()
+            }
+            UserDefaults.standard.set(true, forKey: key)
+            Log.write("open at login: turned on")
+        } catch {
+            Log.write("open at login: \(error.localizedDescription)")
+        }
     }
 
     // MARK: Menu bar

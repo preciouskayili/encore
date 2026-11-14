@@ -11,4 +11,13 @@ rm -f "$ZIP"
 # ditto keeps the app's signature and icon intact, which plain zip can break.
 ditto -c -k --sequesterRsrc --keepParent build/Encore.app "$ZIP"
 
-echo "Packaged $ZIP"
+# A disk image with an Applications shortcut, so installing is one drag.
+DMG="build/Encore-$VERSION.dmg"
+STAGE=$(mktemp -d)
+cp -R build/Encore.app "$STAGE/"
+ln -s /Applications "$STAGE/Applications"
+rm -f "$DMG"
+hdiutil create -quiet -volname "Encore" -srcfolder "$STAGE" -fs HFS+ -format UDZO "$DMG"
+rm -rf "$STAGE"
+
+echo "Packaged $ZIP and $DMG"
