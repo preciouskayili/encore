@@ -50,6 +50,8 @@ open build/Encore.app
 
 `./scripts/package.sh` builds the app and packages it for sharing as a zip and a disk image. `swift scripts/make-icon.swift` redraws the icon.
 
+`./scripts/record-demo.sh` records a short demo with whatever song is playing. Encore covers the screen with a stand-in lock screen and runs itself through the card, full screen and lyrics, and the script writes a video and a GIF to `media/`. It needs ffmpeg.
+
 ## How it works
 
 Three parts of macOS that Apple doesn’t document make this possible.
